@@ -321,22 +321,25 @@ return
             Send, {Tab}
         else
         {
-            gosub, PredList_CompleteNextWord
-            Send, {BackSpace %nCurrentChar%}
-            Clipboard := CurrentChar
-            Send, ^v
+            Gui, PredList:Default
+            LV_GetText(firstPrediction, 2, 2)
+            extractNextWord2(CurrentChar, firstPrediction, CurrentChar, lastWord, nDel)
+            gosub, PredList_Update_CurrentChar
+            Send, {BackSpace %nDel%}
+            Send, %lastWord%
             nCurrentChar := StrLen(CurrentChar)
         }
     return 
 #IfWinNotActive
 
 
-PredList_CompleteNextWord:
-    Gui, PredList:Default
-    LV_GetText(firstPrediction, 2, 2)
-    CurrentChar := extractNextWord(CurrentChar, firstPrediction)
-    gosub, PredList_Update_CurrentChar
-return 
+;~ PredList_CompleteNextWord:
+    ;~ Gui, PredList:Default
+    ;~ LV_GetText(firstPrediction, 2, 2)
+    ;~ extractNextWord2(CurrentChar, firstPrediction, CurrentChar, lastWord, nDel)
+    ;~ ; CurrentChar := extractNextWord(CurrentChar, firstPrediction)
+    ;~ gosub, PredList_Update_CurrentChar
+;~ return 
 
 
 
@@ -358,12 +361,13 @@ return
             SelectedRow := 2
             gosub, PredList_MoveSelectedRow
         gosub, PredList_ExtractSelection
-        CurrentChar := extractNextWord(CurrentChar, SelectedText)
+        extractNextWord2(CurrentChar, SelectedText, CurrentChar, lastWord, nDel)
+        ; CurrentChar := extractNextWord(CurrentChar, SelectedText)
         gosub, PredList_Update_CurrentChar
         WinActivate, ahk_id %WorkingWin%
-        Send, {BackSpace %nCurrentChar%}
+        Send, {BackSpace %nDel%}
         Clipboard := CurrentChar
-        Send, ^v
+        Send, %lastWord%
         nCurrentChar := StrLen(CurrentChar)     
         SelectedRow := 1
     return
@@ -559,22 +563,50 @@ extractNextWord(CurrentChar, firstPrediction) {
 }
 
 extractNextWord2(CurrentChar, PredictionChar, ByRef newCurrentChar, ByRef lastWord, ByRef nDel) {
-    CurrentChar_array := StrSplit(CurrentChar, A_Space)
-    PredictionChar_array := StrSplit(PredictionChar, A_Space)
-    nWord := CurrentChar_array.Length()
-    if (CurrentChar_array[nWord] <> PredictionChar_array[nWord])
-    {   
-        lastWord := PredictionChar_array[nWord]
-        nDel := Strlen(CurrentChar_array[nWord])
-        newCurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord), A_Space)
+    if (SubStr(CurrentChar, 0) = " ")
+    {
+        endSpace := " "
+        hasEndSpace := 1
     }
     else
     {
-        lastWord := PredictionChar_array[nWord+1]
-        nDel := 0
-        newCurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord+1), A_Space)
+        endSpace := ""
+        hasEndSpace := 0
     }
-    return CurrentChar
+
+    CurrentChar_t := Trim(CurrentChar)
+    CurrentChar_array := StrSplit(CurrentChar_t, A_Space)
+    nCurrentWord := CurrentChar_array.Length()
+    
+    PredictionChar_t := Trim(PredictionChar)
+    PredictionChar_array := StrSplit(PredictionChar_t, A_Space)
+    nPredictionWord := PredictionChar_array.Length()
+    
+    if (CurrentChar = PredictionChar)
+    {
+        newCurrentChar := CurrentChar
+        lastWord := endSpace
+        nDel := 0
+    } 
+    else if (nCurrentWord = nPredictionWord)
+    {
+        newCurrentChar := PredictionChar
+        lastWord := PredictionChar . endSpace
+        nDel := StrLen(CurrentChar)
+    } 
+    else if (CurrentChar_array[nCurrentWord] <> PredictionChar_array[nCurrentWord])
+    {   
+        lastWord := PredictionChar_array[nCurrentWord]
+        nDel := Strlen(CurrentChar_array[nCurrentWord]) + hasEndSpace
+        newCurrentChar := strArrayJoin(arrayRetrive(PredictionChar_array, 1, nCurrentWord), A_Space)
+    }
+    else
+    {
+        lastWord := " " . PredictionChar_array[nCurrentWord+1]
+        nDel := hasEndSpace
+        newCurrentChar := strArrayJoin(arrayRetrive(PredictionChar_array, 1, nCurrentWord+1), A_Space)
+    }
+    return
 }
 
 
