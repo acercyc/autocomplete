@@ -53,6 +53,7 @@ nWordFromGoogle := 2
 
 nWord2Netspeak:= 3
 nWordFromNetspeak := *
+nTopRequestFromNetspeak := 20
 
 
 NormalKeyList := "a`nb`nc`nd`ne`nf`ng`nh`ni`nj`nk`nl`nm`nn`no`np`nq`nr`ns`nt`nu`nv`nw`nx`ny`nz`n'`n""`n*" ;list of key names separated by `n that make up words in upper and lower case variants
@@ -103,16 +104,11 @@ PredList_Update:
         for key, val in predictions
         {
             if (nonRequest = "")
-                LV_Add("", Mod(key, 10), val)
+                LV_Add("", key, val)
             else
-                LV_Add("", Mod(key, 10), nonRequest . " " . val)
+                LV_Add("", key, nonRequest . " " . val)
         }
-            
-        ;~ loop, Parse, predictions, |
-        ;~ {
-            ;~ if (A_Index >= 2) & (A_LoopField <> "")
-                ;~ LV_Add("", Mod(A_Index-1, 10), A_LoopField)
-        ;~ }
+        
         LV_ModifyCol()
     }
     GuiControl, +Redraw, hPredList
@@ -222,11 +218,6 @@ ShiftedKey:
     Gosub, KeyPress
 Return
 
-;~ ShiftKey:
-    ;~ CurrentChar .= SubStr(A_ThisHotkey, 0)
-    ;~ gosub, KeyPress
-;~ return
-
 ~Space::
     if (nCurrentChar <=0)
         return
@@ -239,7 +230,7 @@ KeyPress:
     nCurrentChar ++
     if (nCurrentChar = 1) {   
     ; if it's first word, open the window
-        WorkingWin := A
+        WinGet, WorkingWin, ID, A
         WinShow, ahk_id %hPredListWin%
         WinSet, AlwaysOnTop, on, ahk_id %hPredListWin%
         WinSet, Style, -0xC00000, ahk_id %hPredListWin%
@@ -332,7 +323,8 @@ return
         {
             gosub, PredList_CompleteNextWord
             Send, {BackSpace %nCurrentChar%}
-            Send, %CurrentChar%
+            Clipboard := CurrentChar
+            Send, ^v
             nCurrentChar := StrLen(CurrentChar)
         }
     return 
@@ -346,21 +338,6 @@ PredList_CompleteNextWord:
     gosub, PredList_Update_CurrentChar
 return 
 
-
-extractNextWord(CurrentChar, firstPrediction) {
-    CurrentChar_array := StrSplit(CurrentChar, A_Space)
-    firstPrediction_array := StrSplit(firstPrediction, A_Space)
-    nWord := CurrentChar_array.Length()
-    if (CurrentChar_array[nWord] <> firstPrediction_array[nWord])
-    {
-        CurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord), A_Space)
-    }
-    else
-    {
-        CurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord+1), A_Space)
-    }
-    return CurrentChar
-}
 
 
 ; ============================ In Prediction List ============================ ;
@@ -376,11 +353,18 @@ extractNextWord(CurrentChar, firstPrediction) {
     9::gosub, PredList_numSelection
     0::gosub, PredList_numSelection
     
-    Tab::
+    Tab::        
+        if (SelectedRow = 1)
+            SelectedRow := 2
+            gosub, PredList_MoveSelectedRow
         gosub, PredList_ExtractSelection
-        ;~ Gui, PredList:Default
         CurrentChar := extractNextWord(CurrentChar, SelectedText)
         gosub, PredList_Update_CurrentChar
+        WinActivate, ahk_id %WorkingWin%
+        Send, {BackSpace %nCurrentChar%}
+        Clipboard := CurrentChar
+        Send, ^v
+        nCurrentChar := StrLen(CurrentChar)     
         SelectedRow := 1
     return
     
@@ -413,7 +397,7 @@ requestTimer:
                 StrSplitByLastNword(CurrentChar, nWord2Netspeak, nonRequest, strRequist)
                 ; strRequist := strArrayJoin(extractLastNword(CurrentChar, nWord2Netspeak), "+")
                 StringLower, strRequist, strRequist
-                URL_pred = http://api.netspeak.org/netspeak3/search?query=%strRequist%*&topk=20
+                URL_pred = http://api.netspeak.org/netspeak3/search?query=%strRequist%*&topk=%nTopRequestFromNetspeak%
                 engine := "netspeak"
             }
             else {
@@ -447,7 +431,7 @@ requestTimer:
         ; Receive data successfully 
             predictions := whr.ResponseText
             if (engine = "netspeak")
-                predictions := getPredList_postProcessing_nenetspeak(predictions)
+                predictions := getPredList_postProcessing_netspeak(predictions)
             else if (engine = "google")
                 predictions := getPredList_postProcessing_google(predictions)
             
@@ -477,59 +461,27 @@ getPredList_postProcessing_google(predictions) {
     return predictions
 }
 
-getPredList_postProcessing_nenetspeak(predictions) {
+getPredList_postProcessing_netspeak(predictions) {
     predictions := RegExReplace(predictions, "\d+\t")
-    predictions := StrSplit(predictions, "`n", "`r")
-    predictions := arrayRetrive(predictions, 2, 0)
+    predictions_temp := StrSplit(predictions, "`n", "`r")
+    predictions := []
+    for key, val in predictions_temp {
+        if (key=1)
+            continue
+        if (RegExMatch(val, "[^a-zA-Z0-9 ]"))
+            continue
+        else
+            ;~ MsgBox,,,%val%, 1
+            predictions.Push(val)
+    }
+    ; predictions := arrayRetrive(predictions, 2, 0)
     return predictions
 }
 
-wordCounter(str, ByRef word_array, ByRef nWord) {
-    word_array := StrSplit(str, A_Space) 
-    nWord := word_array.Length()
-}
 
 ; ============================================================================ ;
 ;                               String Processing                              ;
 ; ============================================================================ ;
-
-
-;~ extractLastNword(str, n, ByRef p1, ByRef p2) {
-    ;~ str := Trim(str)
-    ;~ wordCounter(str, word_array, nWord) 
-    ;~ if (n >= nWord)
-    ;~ {
-        ;~ p1 := ""
-        ;~ p2 := word_array
-    ;~ }
-    ;~ else
-    ;~ {
-        ;~ p1 = []
-        ;~ p2 = []
-        ;~ Loop, nWord
-        ;~ {
-            ;~ if (A_Index <= (nWord-n)
-                ;~ p1.Push(nWord[A_Index])
-            ;~ else
-                ;~ p2.Push(nWord[A_Index])
-        ;~ }
-    ;~ }
-;~ }
-
-;~ StrJoin(StrArray, sep, firstN) {   
-    ;~ firstN -= 1
-    ;~ str := StrArray.RemoveAt(1)
-    ;~ Loop % firstN
-        ;~ str .= sep . StrArray[A_Index]
-    ;~ return str
-;~ }
-
-;~ StrSplitm(str, d) {
-    ;~ strArray := StrSplit(str, d)
-    ;~ if (strArray
-;~ }
-
-
 extractLastNword(str, n) {
     str := Trim(str)
     strArray := StrSplit(str, A_Space)
@@ -590,6 +542,42 @@ strArrayJoin(a, sep) {
     }
     return str
 }
+
+extractNextWord(CurrentChar, firstPrediction) {
+    CurrentChar_array := StrSplit(CurrentChar, A_Space)
+    firstPrediction_array := StrSplit(firstPrediction, A_Space)
+    nWord := CurrentChar_array.Length()
+    if (CurrentChar_array[nWord] <> firstPrediction_array[nWord])
+    {
+        CurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord), A_Space)
+    }
+    else
+    {
+        CurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord+1), A_Space)
+    }
+    return CurrentChar
+}
+
+extractNextWord2(CurrentChar, PredictionChar, ByRef newCurrentChar, ByRef lastWord, ByRef nDel) {
+    CurrentChar_array := StrSplit(CurrentChar, A_Space)
+    PredictionChar_array := StrSplit(PredictionChar, A_Space)
+    nWord := CurrentChar_array.Length()
+    if (CurrentChar_array[nWord] <> PredictionChar_array[nWord])
+    {   
+        lastWord := PredictionChar_array[nWord]
+        nDel := Strlen(CurrentChar_array[nWord])
+        newCurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord), A_Space)
+    }
+    else
+    {
+        lastWord := PredictionChar_array[nWord+1]
+        nDel := 0
+        newCurrentChar := strArrayJoin(arrayRetrive(firstPrediction_array, 1, nWord+1), A_Space)
+    }
+    return CurrentChar
+}
+
+
 ; ============================================================================ ;
 ^w::reload
 ^e::exitapp
