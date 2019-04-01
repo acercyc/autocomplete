@@ -61,7 +61,6 @@ NumberKeyList := "1`n2`n3`n4`n5`n6`n7`n8`n9`n0" ;list of key names separated by 
 ResetKeyList := "Esc`nHome`nPGUP`nPGDN`nEnd`nLeft`nRight`nRButton`nMButton`n,`n.`n/`n[`n]`n;`n\`n-`n="  ;list of key names separated by `n that cause suggestions to reset
 
 CurrentChar := ""
-nCurrentChar := 0
 nCurrentWord := 0
 LastChar := ""
 predictions := ""
@@ -138,7 +137,6 @@ PredList_OK:
     }
         
     SendText := SelectedText
-    ; nBack := nCurrentChar
     nBack := StrLen(CurrentChar)
     gosub, PredList_reset
     WinActivate, ahk_id %WorkingWin%
@@ -155,7 +153,6 @@ PredList_reset_para:
     SetTimer, requestTimer, Delete
     SelectedRow := 1
     CurrentChar := ""
-    nCurrentChar := 0
     LastChar := ""
     SelectedText := "" 
     isSent := 0
@@ -185,6 +182,8 @@ SetHotkeys(NormalKeyList, NumberKeyList, ResetKeyList)
     {
         Hotkey, ~%A_LoopField%, NormalKey, UseErrorLevel
         Hotkey, ~+%A_LoopField%, ShiftedKey, UseErrorLevel
+        Hotkey, ~*^%A_LoopField%, PredList_reset, UseErrorLevel
+        Hotkey, ~*!%A_LoopField%, PredList_reset, UseErrorLevel
     }
 
     Loop, Parse, NumberKeyList, `n
@@ -213,7 +212,7 @@ return
 
 
 ShiftedKey:
-    if (nCurrentChar = 0)
+    if (StrLen(CurrentChar) = 0)
         initCap := 1
     Char := SubStr(A_ThisHotkey, 3)
     StringUpper, Char, Char
@@ -222,7 +221,7 @@ ShiftedKey:
 Return
 
 ~Space::
-    if (nCurrentChar <=0)
+    if (StrLen(CurrentChar) <=0)
         return
     CurrentChar .= " "
     gosub, KeyPress
@@ -230,8 +229,7 @@ return
 
 
 KeyPress:
-    nCurrentChar ++
-    if (nCurrentChar = 1) {   
+    if (StrLen(CurrentChar) = 1) {   
     ; if it's first word, open the window
         WinGet, WorkingWin, ID, A
         WinShow, ahk_id %hPredListWin%
@@ -266,7 +264,7 @@ KeyPress:
             WinActivate, ahk_id %WorkingWin%
     }
     
-    if (nCurrentChar = requestFromNchar)
+    if (StrLen(CurrentChar) = requestFromNchar)
     {
         SetTimer, requestTimer, -1       
     }
@@ -275,8 +273,7 @@ Return
 
 ~BackSpace::
     CurrentChar := SubStr(CurrentChar, 1, -1)
-    nCurrentChar --
-    if (nCurrentChar <= 0)
+    if (StrLen(CurrentChar) <= 0)
     {
         gosub, PredList_reset        
     }
@@ -284,7 +281,7 @@ Return
     {
         gosub, PredList_Update_CurrentChar
     }
-Return
+return
 
 
 Up::
@@ -318,6 +315,12 @@ Down::
 return
 
 
+; =========================== Common Reseting Keys =========================== ;
+~^BackSpace::
+    gosub, PredList_reset
+return
+
+
 
 ; ========================== Not in Prediction List ========================== ;
 #IfWinNotActive PredList
@@ -326,7 +329,7 @@ return
     `::WinActivate, ahk_id %hPredListWin%
     
     Tab::
-        if (nCurrentChar <=0)
+        if (StrLen(CurrentChar) <=0)
             Send, {Tab}
         else
         {
@@ -336,20 +339,9 @@ return
             gosub, PredList_Update_CurrentChar
             Send, {BackSpace %nDel%}
             Send, %lastWord%
-            nCurrentChar := StrLen(CurrentChar)
         }
     return 
 #IfWinNotActive
-
-
-;~ PredList_CompleteNextWord:
-    ;~ Gui, PredList:Default
-    ;~ LV_GetText(firstPrediction, 2, 2)
-    ;~ extractNextWord2(CurrentChar, firstPrediction, CurrentChar, lastWord, nDel)
-    ;~ ; CurrentChar := extractNextWord(CurrentChar, firstPrediction)
-    ;~ gosub, PredList_Update_CurrentChar
-;~ return 
-
 
 
 ; ============================ In Prediction List ============================ ;
@@ -371,13 +363,11 @@ return
             gosub, PredList_MoveSelectedRow
         gosub, PredList_ExtractSelection
         extractNextWord2(CurrentChar, SelectedText, CurrentChar, lastWord, nDel)
-        ; CurrentChar := extractNextWord(CurrentChar, SelectedText)
         gosub, PredList_Update_CurrentChar
         WinActivate, ahk_id %WorkingWin%
         Send, {BackSpace %nDel%}
         Clipboard := CurrentChar
         Send, %lastWord%
-        nCurrentChar := StrLen(CurrentChar)     
         SelectedRow := 1
     return
     
@@ -401,14 +391,14 @@ return
 ;                                 Prediction IO                                ;
 ; ============================================================================ ;
 requestTimer:
+    ;~ ListVars
     if ((isSent = 0) & (CurrentChar <> LastChar)) {  
         ; Send new request
             
-            if (SubStr(CurrentChar, 0, 1) = " ") {
+            if (SubStr(CurrentChar, 0) = " ") {
             ; is not typing a word
                 ; search by netspeak
                 StrSplitByLastNword(CurrentChar, nWord2Netspeak, nonRequest, strRequist)
-                ; strRequist := strArrayJoin(extractLastNword(CurrentChar, nWord2Netspeak), "+")
                 StringLower, strRequist, strRequist
                 URL_pred = http://api.netspeak.org/netspeak3/search?query=%strRequist%*&topk=%nTopRequestFromNetspeak%
                 engine := "netspeak"
@@ -417,7 +407,6 @@ requestTimer:
             ; is typing a word
                 ; search by google
                 StrSplitByLastNword(CurrentChar, nWord2Google, nonRequest, strRequist)
-                ; strRequist := strArrayJoin(extractLastNword(CurrentChar, nWord2Google), "+")      
                 URL_pred = http://suggestqueries.google.com/complete/search?q=%strRequist%&client=firefox&hl=en
                 engine := "google"
             }
@@ -481,13 +470,11 @@ getPredList_postProcessing_netspeak(predictions) {
     for key, val in predictions_temp {
         if (key=1)
             continue
-        if (RegExMatch(val, "[^a-zA-Z0-9 ]"))
+        if (RegExMatch(val, "[^a-zA-Z0-9 ']"))
             continue
         else
-            ;~ MsgBox,,,%val%, 1
             predictions.Push(val)
     }
-    ; predictions := arrayRetrive(predictions, 2, 0)
     return predictions
 }
 
@@ -620,8 +607,8 @@ extractNextWord2(CurrentChar, PredictionChar, ByRef newCurrentChar, ByRef lastWo
 
 
 ; ============================================================================ ;
-^w::reload
-^e::exitapp
+^F6::reload
+^F7::exitapp
 ^#space::
     Suspend, Toggle
     gosub, PredList_reset
