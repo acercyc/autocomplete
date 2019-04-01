@@ -37,6 +37,7 @@
 #WinActivateForce
 SendMode Input
 CoordMode, Caret, Screen
+CoordMode, Mouse, Screen
 ; SetTitleMatchMode , 2
 
 PredListWin_shift_Y := 35
@@ -236,10 +237,27 @@ KeyPress:
         WinSet, AlwaysOnTop, on, ahk_id %hPredListWin%
         WinSet, Style, -0xC00000, ahk_id %hPredListWin%
         WinGetPos,,, win_w, win_h, ahk_id %hPredListWin%
+        
+        SysGet, VirtualWidth, 78
+        SysGet, VirtualHeight, 79
+        
         if (A_CaretX = "")
         {
-            WinPosi_X := A_ScreenWidth - win_w
-            WinPosi_Y := A_ScreenHeight - win_h - 30
+            ; ======= show on edge of the window ======= ;
+            ;~ WinPosi_X := A_ScreenWidth - win_w
+            ;~ WinPosi_Y := A_ScreenHeight - win_h - 30
+            
+            ; ======= follow mouse position ======= ;
+            MouseGetPos, mx, my
+            WinPosi_X := mx
+            WinPosi_Y := my + PredListWin_shift_Y
+            if ((mx + win_w) > A_ScreenWidth)
+                WinPosi_X := A_ScreenWidth-win_w
+            
+            if ((my + win_h + PredListWin_shift_Y) > (A_ScreenHeight))
+                WinPosi_Y := my - win_h - PredListWin_shift_Y            
+            
+            
         }            
         else
         {
@@ -607,8 +625,8 @@ extractNextWord2(CurrentChar, PredictionChar, ByRef newCurrentChar, ByRef lastWo
 
 
 ; ============================================================================ ;
-^F6::reload
-^F7::exitapp
+^#w::reload
+^#e::exitapp
 ^#space::
     Suspend, Toggle
     gosub, PredList_reset
