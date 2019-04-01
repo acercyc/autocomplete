@@ -137,11 +137,14 @@ PredList_OK:
         SelectedText := initc . SubStr(SelectedText, 2)
     }
         
-    Clipboard := SelectedText
-    nBack := nCurrentChar
+    SendText := SelectedText
+    ; nBack := nCurrentChar
+    nBack := StrLen(CurrentChar)
     gosub, PredList_reset
+    WinActivate, ahk_id %WorkingWin%
+    
     Send, {BackSpace %nBack%}
-    Send, ^v
+    SendInput, %SendText%
 return
 
 
@@ -252,10 +255,16 @@ KeyPress:
         }
         WinMove, ahk_id %hPredListWin%,, WinPosi_X, WinPosi_Y
         
-        LV_Add("select",, CurrentChar)        
+        Gui, PredList:Default
+        LV_Add("select","", CurrentChar)
+        LV_ModifyCol()
     }
-    
-    gosub, PredList_Update_CurrentChar
+    else
+    {
+        gosub, PredList_Update_CurrentChar
+        if (!WinActive("ahk_id" . WorkingWin))
+            WinActivate, ahk_id %WorkingWin%
+    }
     
     if (nCurrentChar = requestFromNchar)
     {
@@ -588,12 +597,12 @@ extractNextWord2(CurrentChar, PredictionChar, ByRef newCurrentChar, ByRef lastWo
         lastWord := endSpace
         nDel := 0
     } 
-    else if (nCurrentWord = nPredictionWord)
-    {
-        newCurrentChar := PredictionChar
-        lastWord := PredictionChar . endSpace
-        nDel := StrLen(CurrentChar)
-    } 
+    ;~ else if (nCurrentWord = nPredictionWord)
+    ;~ {
+        ;~ newCurrentChar := PredictionChar
+        ;~ lastWord := PredictionChar . endSpace
+        ;~ nDel := StrLen(CurrentChar)
+    ;~ } 
     else if (CurrentChar_array[nCurrentWord] <> PredictionChar_array[nCurrentWord])
     {   
         lastWord := PredictionChar_array[nCurrentWord]
