@@ -16,12 +16,16 @@ isSent := 0
 
 
 searchEng := ""
-nWord2Google := 2
+nWord2Google := 3
 nWordFromGoogle := 2
 
 nWord2Netspeak:= 3
 nWordFromNetspeak := *
 nTopRequestFromNetspeak := 20
+
+GCS_key := "AIzaSyAAWoyB6S856pIvL33IP6gRl7B1PgUaaE8"
+GCS_ID := "013753396245911790896:9bszyfkdl14"
+GCS_isUseDidYouMean := 1
 
 
 NormalKeyList := "a`nb`nc`nd`ne`nf`ng`nh`ni`nj`nk`nl`nm`nn`no`np`nq`nr`ns`nt`nu`nv`nw`nx`ny`nz`n'`n""`n*" ;list of key names separated by `n that make up words in upper and lower case variants
@@ -170,6 +174,7 @@ return
 PredList_reset_para:
     SetTimer, requestTimer, Delete
     SelectedRow := 1
+    predictions := ""
     CurrentChar := ""
     LastChar := ""
     SelectedText := "" 
@@ -410,7 +415,6 @@ requestTimer:
     ;~ ListVars
     if ((isSent = 0) & (CurrentChar <> LastChar)) {  
         ; Send new request
-            
             if (SubStr(CurrentChar, 0) = " ") {
             ; is not typing a word
                 ; search by netspeak
@@ -453,6 +457,15 @@ requestTimer:
             else if (engine = "google")
                 predictions := getPredList_postProcessing_google(predictions)
             
+            
+            ; === Did you mean ===
+            if (GCS_isUseDidYouMean & (predictions.Length() <= 1))
+            {
+                DYM_str := DidYouMeanRequest(GCS_ID, GCS_key, strRequist)
+                predictions.InsertAt(1, DYM_str)
+            }
+            
+            
             gosub, PredList_Update
             isSent := 0
             LastChar := CurrentChar
@@ -467,6 +480,25 @@ requestTimer:
     ; set timer for the next check timing 
     SetTimer, requestTimer, %requestInterval%
 return
+
+
+
+DidYouMeanRequest(GCS_ID, GCS_key, strRequist, requestTimeout) {
+    whr_DYM := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+    URL_pred := "https://content.googleapis.com/customsearch/v1?cx=" . GCS_ID . "&lr=lang_en&q=" . strRequist . "&fields=spelling&prettyPrint=false&key=" . GCS_key
+    whr_DYM.Open("GET", URL_pred, true)
+    whr_DYM.Send()
+    whr_DYM.WaitForResponse(requestTimeout * 1000)
+    DYM_str := whr_DYM.ResponseText
+    if (DYM_str = "{}")
+        DYM_str := ""
+    else
+    {
+        RegExMatch(DYM_str, "OU)correctedQuery"":""(.+)"",", DYM_str)
+        DYM_str := DYM_str.Value[1]
+    }
+    return DYM_str
+}
 
 
 getPredList_postProcessing_google(predictions) {
