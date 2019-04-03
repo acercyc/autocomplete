@@ -16,10 +16,10 @@ isSent := 0
 
 
 searchEng := ""
-nWord2Google := 3
+nWord2Google := 2
 nWordFromGoogle := 2
 
-nWord2Netspeak:= 3
+nWord2Netspeak:= 2
 nWordFromNetspeak := *
 nTopRequestFromNetspeak := 20
 
@@ -71,7 +71,7 @@ PredList_Update:
         LV_Add("",, "Connecting...")
         return
     }
-    else if (predictions <> "")
+    else if (predictions[1] <> "")
     {
         for key, val in predictions
         {
@@ -336,11 +336,17 @@ Down::
 return
 
 
+
+
 ; =========================== Common Reseting Keys =========================== ;
 ~^BackSpace::
     gosub, PredList_reset
 return
 
+
+~*LButton::
+    gosub, PredList_reset
+return
 
 
 ; ========================== Not in Prediction List ========================== ;
@@ -461,8 +467,10 @@ requestTimer:
             ; === Did you mean ===
             if (GCS_isUseDidYouMean & (predictions.Length() <= 1))
             {
+                DYM_str := ""
                 DYM_str := DidYouMeanRequest(GCS_ID, GCS_key, strRequist, requestTimeout)
-                predictions.InsertAt(1, DYM_str)
+                if (DYM_str <> "")
+                    predictions.InsertAt(1, DYM_str)
             }
             
             
