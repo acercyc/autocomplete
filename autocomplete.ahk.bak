@@ -16,7 +16,7 @@ isSent := 0
 
 
 searchEng := ""
-nWord2Google := 3
+nWord2Google := 2
 nWordFromGoogle := 2
 
 nWord2Netspeak:= 3
