@@ -1,36 +1,3 @@
-; 0.1 - Acer 2019/03/22 03:43
-; 0.2 - Acer 2019/03/27 09:35
-
-; script slower <file onset>
-; ============================
-; SetBatchLines, 1 ; set for lines of execution within one delay
-; SetTimer, sleepLabel, 5
-; ============================
-
-
-
-; script slower <file offset>
-; ============================
-; sleepLabel:
-; sleep 100 ; set for line delay time
-; return
-; ============================
-
-
-; ListVars
-; Pause
-
-; SetWorkingDir, DirName
-
-; SetWinDelay
-; SetKeyDelay [, Delay, PressDuration, Play]
-; SetMouseDelay
-; SetDefaultMouseSpeed, Speed
- 
-; #Include
-; #Persistent
-; #NoTrayIcon
-
 ; ============================================================================ ;
 ;                                     Init                                     ;
 ; ============================================================================ ;
@@ -76,9 +43,10 @@ Gui, Add, ListView, x0 y0 w350 r11 -Hdr -Multi AltSubmit hwndhPredList viPredLis
 Gui, Add, Button, Hidden Default gPredList_OK, OK
 Gui, Show, AutoSize Hide, PredList
 
+
+
 SetHotkeys(NormalKeyList, NumberKeyList, ResetKeyList)
 whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-; ============================================================================ ;
 
 ; ============================================================================ ;
 ;                               Prediction List                                ;
@@ -136,9 +104,18 @@ PredList_OK:
         StringUpper, initc, initc
         SelectedText := initc . SubStr(SelectedText, 2)
     }
-        
-    SendText := SelectedText
-    nBack := StrLen(CurrentChar)
+    
+    if (InStr(SelectedText, CurrentChar))
+    {
+        SendText := SubStr(SelectedText, StrLen(CurrentChar)+1)
+        nBack := 0
+    }
+    else
+    {
+        SendText := SelectedText
+        nBack := StrLen(CurrentChar)
+    }
+    
     gosub, PredList_reset
     WinActivate, ahk_id %WorkingWin%
     
@@ -146,6 +123,46 @@ PredList_OK:
     SendInput, %SendText%
 return
 
+
+
+PredList_ShowGUI:
+    WinShow, ahk_id %hPredListWin%
+    WinSet, AlwaysOnTop, on, ahk_id %hPredListWin%
+    WinSet, Style, -0xC00000, ahk_id %hPredListWin%
+    WinGetPos,,, win_w, win_h, ahk_id %hPredListWin%
+    
+    SysGet, VirtualWidth, 78
+    SysGet, VirtualHeight, 79
+    
+    if (A_CaretX = "")
+    {
+        ; ======= show on edge of the window ======= ;
+        ;~ WinPosi_X := A_ScreenWidth - win_w
+        ;~ WinPosi_Y := A_ScreenHeight - win_h - 30
+        
+        ; ======= follow mouse position ======= ;
+        MouseGetPos, mx, my
+        WinPosi_X := mx
+        WinPosi_Y := my + PredListWin_shift_Y
+        if ((mx + win_w) > VirtualWidth)
+            WinPosi_X := VirtualWidth-win_w
+        
+        if ((my + win_h + PredListWin_shift_Y) > (VirtualHeight))
+            WinPosi_Y := my - win_h - PredListWin_shift_Y            
+        
+    }            
+    else
+    {
+        WinPosi_X := A_CaretX
+        WinPosi_Y := A_CaretY + PredListWin_shift_Y
+        if ((A_CaretX + win_w) > VirtualWidth)
+            WinPosi_X := VirtualWidth-win_w
+        
+        if ((A_CaretY + win_h + PredListWin_shift_Y) > (VirtualHeight))
+            WinPosi_Y := A_CaretY - win_h - PredListWin_shift_Y
+    }
+    WinMove, ahk_id %hPredListWin%,, WinPosi_X, WinPosi_Y
+return
 
 ; ============================================================================ ;
 ;                                     Reset                                    ;
@@ -224,8 +241,22 @@ Return
 ~Space::
     if (StrLen(CurrentChar) <=0)
         return
-    CurrentChar .= " "
-    gosub, KeyPress
+    else if ((StrLen(CurrentChar) >=2) & (SubStr(CurrentChar, 0) = A_Space))
+    {
+        Send, {BackSpace}
+        gosub, PredList_reset
+    }
+    else
+    {
+        if (isSent)
+        {
+            whr.Abort()
+            isSent := 0
+        }
+        SetTimer, requestTimer, -1
+        CurrentChar .= " "
+        gosub, KeyPress
+    }
 return
 
 
@@ -233,44 +264,6 @@ KeyPress:
     if (StrLen(CurrentChar) = 1) {   
     ; if it's first word, open the window
         WinGet, WorkingWin, ID, A
-        WinShow, ahk_id %hPredListWin%
-        WinSet, AlwaysOnTop, on, ahk_id %hPredListWin%
-        WinSet, Style, -0xC00000, ahk_id %hPredListWin%
-        WinGetPos,,, win_w, win_h, ahk_id %hPredListWin%
-        
-        SysGet, VirtualWidth, 78
-        SysGet, VirtualHeight, 79
-        
-        if (A_CaretX = "")
-        {
-            ; ======= show on edge of the window ======= ;
-            ;~ WinPosi_X := A_ScreenWidth - win_w
-            ;~ WinPosi_Y := A_ScreenHeight - win_h - 30
-            
-            ; ======= follow mouse position ======= ;
-            MouseGetPos, mx, my
-            WinPosi_X := mx
-            WinPosi_Y := my + PredListWin_shift_Y
-            if ((mx + win_w) > A_ScreenWidth)
-                WinPosi_X := A_ScreenWidth-win_w
-            
-            if ((my + win_h + PredListWin_shift_Y) > (A_ScreenHeight))
-                WinPosi_Y := my - win_h - PredListWin_shift_Y            
-            
-            
-        }            
-        else
-        {
-            WinPosi_X := A_CaretX
-            WinPosi_Y := A_CaretY + PredListWin_shift_Y
-            if ((A_CaretX + win_w) > A_ScreenWidth)
-                WinPosi_X := A_ScreenWidth-win_w
-            
-            if ((A_CaretY + win_h + PredListWin_shift_Y) > (A_ScreenHeight))
-                WinPosi_Y := A_CaretY - win_h - PredListWin_shift_Y
-        }
-        WinMove, ahk_id %hPredListWin%,, WinPosi_X, WinPosi_Y
-        
         Gui, PredList:Default
         LV_Add("select","", CurrentChar)
         LV_ModifyCol()
@@ -284,9 +277,11 @@ KeyPress:
     
     if (StrLen(CurrentChar) = requestFromNchar)
     {
+        gosub, PredList_ShowGUI
         SetTimer, requestTimer, -1       
     }
 Return
+
 
 
 ~BackSpace::
@@ -348,7 +343,7 @@ return
     
     Tab::
         if (StrLen(CurrentChar) <=0)
-            Send, {Tab}
+            Send, ^{Tab}
         else
         {
             Gui, PredList:Default
