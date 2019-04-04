@@ -1,7 +1,13 @@
 ; ============================================================================ ;
 ;                                     Init                                     ;
 ; ============================================================================ ;
+#NoEnv
 #WinActivateForce
+#MaxThreadsBuffer On
+#MaxThreads 255
+#UseHook
+SetBatchLines -1 
+SetWinDelay, 10
 SendMode Input
 CoordMode, Caret, Screen
 CoordMode, Mouse, Screen
@@ -278,8 +284,8 @@ KeyPress:
     else
     {
         gosub, PredList_Update_CurrentChar
-        if (!WinActive("ahk_id" . WorkingWin))
-            WinActivate, ahk_id %WorkingWin%
+        ;~ if (!WinActive("ahk_id" . WorkingWin))
+            ;~ WinActivate, ahk_id %WorkingWin%
     }
     
     if (StrLen(CurrentChar) = requestFromNchar)
@@ -357,7 +363,7 @@ return
     
     Tab::
         if (StrLen(CurrentChar) <=0)
-            Send, ^{Tab}
+            Send, {Tab}
         else
         {
             Gui, PredList:Default
