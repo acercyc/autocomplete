@@ -4,15 +4,17 @@
 #NoEnv
 #WinActivateForce
 #MaxThreadsBuffer On
-#MaxThreads 255
+;~ #MaxThreads 255
 #UseHook
-SetBatchLines -1 
-SetWinDelay, 10
+SetBatchLines 20ms
+SetWinDelay, 20
 SendMode Input
 CoordMode, Caret, Screen
 CoordMode, Mouse, Screen
 ; SetTitleMatchMode , 2
 
+
+PredListWin_w := 360
 PredListWin_shift_Y := 35
 
 requestInterval := 100
@@ -49,8 +51,9 @@ requesting := 0
 initCap := 0
 
 Gui, PredList:new, -MinimizeBox -MaximizeBox -SysMenu -Caption -AlwaysOnTop -0xC40000 +HwndhPredListWin 
-Gui, Add, ListView, x0 y0 w350 r11 -Hdr -Multi AltSubmit hwndhPredList viPredList, Index|Prediction
+Gui, Add, ListView, x0 y0 w%PredListWin_w% r11 -Hdr -Multi AltSubmit +ReadOnly hwndhPredList viPredList, Index|Prediction
 Gui, Add, Button, Hidden Default gPredList_OK, OK
+Gui, Margin, -0, -0
 Gui, Show, AutoSize Hide, PredList
 
 
@@ -87,10 +90,35 @@ PredList_Update:
                 LV_Add("", key, nonRequest . " " . val)
         }
         
+        
+        LV_ModifyCol(1, "Right")
         LV_ModifyCol()
+        
+        ;~ CurrentWidth := getListViewWidth(hPredList)
+        ;~ if (CurrentWidth != -1) {
+            ;~ GuiControl, Move, hPredList, w%CurrentWidth%
+            ;~ WinSet, Region, w%CurrentWidth%, PredList
+            ;~ Gui, Show, w%CurrentWidth%, PredList
+        ;~ }
+            ;~ Gui, Show, Autosize        
+        
     }
     GuiControl, +Redraw, hPredList
 return
+
+
+getListViewWidth(hPredList) {
+    SendMessage, 4125, 0, 0,, ahk_id %hPredList%
+    w1 := ErrorLevel
+    
+    SendMessage, 4125, 1, 0,, ahk_id %hPredList%
+    w2 := ErrorLevel    
+    
+    if((w1 <> FAIL) & (w2 <> FAIL))
+        return (w1+w2)
+    else
+        return -1
+}
 
 
 PredList_MoveSelectedRow:
@@ -456,14 +484,14 @@ requestTimer:
         
         try
         {   
-            isReceived := whr.WaitForResponse(requestTimeout * 1000)                      
+            isReceived := whr.WaitForResponse(requestTimeout * 1000)
+            predictions := whr.ResponseText
         }
         catch connErrorMsg
             isReceived := 0
         
         if (isReceived = -1) {
         ; Receive data successfully 
-            predictions := whr.ResponseText
             if (engine = "netspeak")
                 predictions := getPredList_postProcessing_netspeak(predictions)
             else if (engine = "google")
@@ -482,6 +510,7 @@ requestTimer:
             
             gosub, PredList_Update
             isSent := 0
+            isReceived := 0
             LastChar := CurrentChar
         } 
         else if (isReceived = 0) {
