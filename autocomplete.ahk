@@ -56,6 +56,18 @@ Gui, Add, Button, Hidden Default gPredList_OK, OK
 Gui, Margin, -0, -0
 Gui, Show, AutoSize Hide, PredList
 
+; Get win size
+WinGetPos,,, win_w_orig, win_h_orig, ahk_id %hPredListWin%
+
+
+; =================================== get scroll bar initial value
+;~ ScrollBar_min := 0
+;~ ScrollBar_max := 0
+;~ ScrollBar_max_orig := 0
+;~ DllCall("GetScrollRange", "UInt", hPredList, "Int", 0, "Int*", ScrollBar_min, "Int*", ScrollBar_max)
+;~ DllCall("GetScrollRange", "UInt", hPredList, "Int", 0, "Int*", ScrollBar_min, "Int*", ScrollBar_max_orig)
+;~ ScrollBar_h_offset := ScrollBar_max - PredListWin_w
+;~ ScrollBar_max_orig := ScrollBar_max
 
 
 SetHotkeys(NormalKeyList, NumberKeyList, ResetKeyList)
@@ -94,16 +106,27 @@ PredList_Update:
         LV_ModifyCol(1, "Right")
         LV_ModifyCol()
         
-        ;~ CurrentWidth := getListViewWidth(hPredList)
-        ;~ if (CurrentWidth != -1) {
-            ;~ GuiControl, Move, hPredList, w%CurrentWidth%
-            ;~ WinSet, Region, w%CurrentWidth%, PredList
-            ;~ Gui, Show, w%CurrentWidth%, PredList
-        ;~ }
-            ;~ Gui, Show, Autosize        
+                    ;~ Gui, Show, AutoSize, PredList
+                    
+                    ;~ CurrentWidth := getListViewWidth(hPredList)
+                    ;~ if (CurrentWidth != -1) {
+                        ;~ GuiControl, Move, hPredList, w%CurrentWidth%
+                        ;~ WinSet, Region, w%CurrentWidth%, PredList
+                        ;~ Gui, Show, w%CurrentWidth%, PredList
+                    ;~ }
+                        ;~ Gui, Show, Autosize        
         
     }
     GuiControl, +Redraw, hPredList
+    
+    ; ============================================================================ Change window size if sentence is too long 
+    ;~ DllCall("GetScrollRange", "UInt", hLVItems, "Int", 0, "Int*", ScrollBar_min, "Int*", ScrollBar_max)
+    ;~ if (ScrollBar_max > ScrollBar_max_orig) 
+    ;~ {
+        ;~ GuiControl, Move, LVItems, % "w" . (ScrollBar_max - ScrollBar_h_offset)
+        ;~ win_w_new := ScrollBar_max - ScrollBar_max_orig + win_w_orig
+        ;~ WinMove, ahk_id %hPredList%, PredList,,, %win_w_new%
+    ;~ }    
 return
 
 
@@ -168,9 +191,11 @@ PredList_ShowGUI:
     WinSet, AlwaysOnTop, on, ahk_id %hPredListWin%
     WinSet, Style, -0xC00000, ahk_id %hPredListWin%
     WinGetPos,,, win_w, win_h, ahk_id %hPredListWin%
-    
+
     SysGet, VirtualWidth, 78
-    SysGet, VirtualHeight, 79
+    ; SysGet, VirtualHeight, 79
+    ; SysGet, VirtualHeight, 17
+    VirtualHeight := A_ScreenHeight
     
     if (A_CaretX = "")
     {
@@ -183,10 +208,10 @@ PredList_ShowGUI:
         WinPosi_X := mx
         WinPosi_Y := my + PredListWin_shift_Y
         if ((mx + win_w) > VirtualWidth)
-            WinPosi_X := VirtualWidth-win_w
+            WinPosi_X := VirtualWidth - win_w
         
-        if ((my + win_h + PredListWin_shift_Y) > (VirtualHeight))
-            WinPosi_Y := my - win_h - PredListWin_shift_Y            
+        ;~ if ((my + win_h) > (VirtualHeight))
+            ;~ WinPosi_Y := VirtualHeight - win_h           
         
     }            
     else
@@ -222,7 +247,8 @@ PredList_reset_win:
     LV_Delete()
     WinSet, AlwaysOnTop, Off, ahk_id %hPredListWin%
     WinHide, ahk_id %hPredListWin%
-    ;~ WinActivate, ahk_id %WorkingWin%
+    WinActivate, ahk_id %WorkingWin% ;modify 2019/05/08 08:38
+    WorkingWin := ""
 return
 
 
@@ -373,13 +399,19 @@ return
 
 
 ; =========================== Common Reseting Keys =========================== ;
-~^BackSpace::
-    gosub, PredList_reset
+~*^BackSpace::
+    ;~ WinGet, WinState, Style, ahk_id %hPredListWin%
+    ;~ if (WinState & 0x10000000)  ; 0x10000000 is WS_VISIBLE
+    if (CurrentChar != "")
+        gosub, PredList_reset
 return
 
 
 ~*LButton::
-    gosub, PredList_reset
+    ;~ WinGet, WinState, Style, ahk_id %hPredListWin%
+    ;~ if (WinState & 0x10000000)  ; 0x10000000 is WS_VISIBLE
+    if (CurrentChar != "")
+        gosub, PredList_reset
 return
 
 
