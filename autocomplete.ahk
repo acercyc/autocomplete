@@ -232,6 +232,7 @@ return
 ; ============================================================================ ;
 PredList_reset_para:
     SetTimer, requestTimer, Delete
+    SetTimer, MouseFollowingTimer, Delete   
     SelectedRow := 1
     predictions := ""
     CurrentChar := ""
@@ -345,7 +346,10 @@ KeyPress:
     if (StrLen(CurrentChar) = requestFromNchar)
     {
         gosub, PredList_ShowGUI
-        SetTimer, requestTimer, -1       
+        SetTimer, requestTimer, -1
+        
+        if (A_CaretX = "")
+            SetTimer, MouseFollowingTimer, 200 
     }
 Return
 
@@ -557,6 +561,28 @@ requestTimer:
 return
 
 
+MouseFollowingTimer:
+    WinGetPos,,, win_w, win_h, ahk_id %hPredListWin%
+
+    SysGet, VirtualWidth, 78
+    ; SysGet, VirtualHeight, 79
+    ; SysGet, VirtualHeight, 17
+    VirtualHeight := A_ScreenHeight        
+    ; ======= show on edge of the window ======= ;
+    ;~ WinPosi_X := A_ScreenWidth - win_w
+    ;~ WinPosi_Y := A_ScreenHeight - win_h - 30
+    
+    ; ======= follow mouse position ======= ;
+    MouseGetPos, mx, my
+    WinPosi_X := mx
+    WinPosi_Y := my + PredListWin_shift_Y
+    if ((mx + win_w) > VirtualWidth)
+        WinPosi_X := VirtualWidth - win_w
+    
+    ;~ if ((my + win_h) > (VirtualHeight))
+        ;~ WinPosi_Y := VirtualHeight - win_h           
+    WinMove, ahk_id %hPredListWin%,, WinPosi_X, WinPosi_Y
+return
 
 DidYouMeanRequest(GCS_ID, GCS_key, strRequist, requestTimeout) {
     whr_DYM := ComObjCreate("WinHttp.WinHttpRequest.5.1")
