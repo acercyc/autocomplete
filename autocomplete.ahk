@@ -1,6 +1,7 @@
 ; ============================================================================ ;
 ;                                     Init                                     ;
 ; ============================================================================ ;
+; ------------------------------ Script setting ------------------------------ ;
 #NoEnv
 #WinActivateForce
 #MaxThreadsBuffer On
@@ -13,33 +14,46 @@ CoordMode, Caret, Screen
 CoordMode, Mouse, Screen
 ; SetTitleMatchMode , 2
 
-
+; ------------------------------ Gui Parameters ------------------------------
 PredListWin_w := 360
 PredListWin_shift_Y := 35
 
+; ---------------------- Mouse following window position --------------------- ;
+isMouseFollowingOn := 1
+MouseFollowingTimerInterval := 80
+MouseGetPos, mx__, my__  ; Get Mouse initial position
+
+
+; ------------------------ Internet request parameters ----------------------- ;
 requestInterval := 100
 requestTimeout := 400
 requestFromNchar := 2
 isSent := 0
 
-
+; Google autocomplete
 searchEng := ""
 nWord2Google := 2
 nWordFromGoogle := 2
 
+; Netspeak
 nWord2Netspeak:= 2
 nWordFromNetspeak := *
 nTopRequestFromNetspeak := 20
 
+; Google suggestion
 GCS_key := "AIzaSyAAWoyB6S856pIvL33IP6gRl7B1PgUaaE8"
 GCS_ID := "013753396245911790896:9bszyfkdl14"
 GCS_isUseDidYouMean := 1
 
-
+; Create COM communication
+whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+; --------------------------------- Key list --------------------------------- ;
 NormalKeyList := "a`nb`nc`nd`ne`nf`ng`nh`ni`nj`nk`nl`nm`nn`no`np`nq`nr`ns`nt`nu`nv`nw`nx`ny`nz`n'`n""`n*" ;list of key names separated by `n that make up words in upper and lower case variants
 NumberKeyList := "1`n2`n3`n4`n5`n6`n7`n8`n9`n0" ;list of key names separated by `n that make up words as well as their numpad equivalents
 ResetKeyList := "Esc`nHome`nPGUP`nPGDN`nEnd`nLeft`nRight`nRButton`nMButton`n,`n.`n/`n[`n]`n;`n\`n-`n="  ;list of key names separated by `n that cause suggestions to reset
+SetHotkeys(NormalKeyList, NumberKeyList, ResetKeyList)
 
+; --------------------------- Parameter initialise --------------------------- ;
 CurrentChar := ""
 nCurrentWord := 0
 LastChar := ""
@@ -50,6 +64,9 @@ SelectedText := ""
 requesting := 0
 initCap := 0
 
+; ============================================================================ ;
+;                               Greate GUI window                              ;
+; ============================================================================ ;
 Gui, PredList:new, -MinimizeBox -MaximizeBox -SysMenu -Caption -AlwaysOnTop -0xC40000 +HwndhPredListWin 
 Gui, Add, ListView, x0 y0 w%PredListWin_w% r11 -Hdr -Multi AltSubmit +ReadOnly hwndhPredList viPredList, Index|Prediction
 Gui, Add, Button, Hidden Default gPredList_OK, OK
@@ -58,6 +75,7 @@ Gui, Show, AutoSize Hide, PredList
 
 ; Get win size
 WinGetPos,,, win_w_orig, win_h_orig, ahk_id %hPredListWin%
+
 
 
 ; =================================== get scroll bar initial value
@@ -70,8 +88,6 @@ WinGetPos,,, win_w_orig, win_h_orig, ahk_id %hPredListWin%
 ;~ ScrollBar_max_orig := ScrollBar_max
 
 
-SetHotkeys(NormalKeyList, NumberKeyList, ResetKeyList)
-whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 
 ; ============================================================================ ;
 ;                               Prediction List                                ;
@@ -348,8 +364,8 @@ KeyPress:
         gosub, PredList_ShowGUI
         SetTimer, requestTimer, -1
         
-        if (A_CaretX = "")
-            SetTimer, MouseFollowingTimer, 200 
+        if ((A_CaretX = "") && (isMouseFollowingOn = 1))
+            SetTimer, MouseFollowingTimer, %MouseFollowingTimerInterval% 
     }
 Return
 
@@ -562,26 +578,16 @@ return
 
 
 MouseFollowingTimer:
-    WinGetPos,,, win_w, win_h, ahk_id %hPredListWin%
-
-    SysGet, VirtualWidth, 78
-    ; SysGet, VirtualHeight, 79
-    ; SysGet, VirtualHeight, 17
-    VirtualHeight := A_ScreenHeight        
-    ; ======= show on edge of the window ======= ;
-    ;~ WinPosi_X := A_ScreenWidth - win_w
-    ;~ WinPosi_Y := A_ScreenHeight - win_h - 30
-    
-    ; ======= follow mouse position ======= ;
     MouseGetPos, mx, my
-    WinPosi_X := mx
-    WinPosi_Y := my + PredListWin_shift_Y
-    if ((mx + win_w) > VirtualWidth)
-        WinPosi_X := VirtualWidth - win_w
-    
-    ;~ if ((my + win_h) > (VirtualHeight))
-        ;~ WinPosi_Y := VirtualHeight - win_h           
-    WinMove, ahk_id %hPredListWin%,, WinPosi_X, WinPosi_Y
+    if ((mx != mx__) or (my != my__))
+    {    
+        ; ======= follow mouse position ======= ;
+        WinPosi_X := mx
+        WinPosi_Y := my + PredListWin_shift_Y           
+        WinMove, ahk_id %hPredListWin%,, WinPosi_X, WinPosi_Y
+        mx__ := mx
+        my__ := my
+    }
 return
 
 DidYouMeanRequest(GCS_ID, GCS_key, strRequist, requestTimeout) {
